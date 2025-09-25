@@ -6,10 +6,12 @@ import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
 import 'package:provider/provider.dart';
+import 'package:dart_openai/dart_openai.dart';
 
 // --- Configuration ---
 const String serverUrl = "http://10.229.231.2:8000";
-const String GEMINI_API_KEY = "AIzaSyBQ9jQFKFWqH4hSraOv2a8O0SN_sDiNQWY";
+const String GEMINI_API_KEY = "AIzaSyDO5rkAnP_UsNfKD_yY779AlE_QydUI5ck";
+const String OPENAI_API_KEY = "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";
 // --- End of Configuration ---
 
 // --- Localization Manager ---
@@ -385,56 +387,67 @@ class _PredictionPageState extends State<PredictionPage> {
         .toList();
   }
 
-  Future<void> _getSolutionsFromAI() async {
-    if (_predictionResult == null) return;
-    final localeManager = Provider.of<LocaleManager>(context, listen: false);
+Future<void> _getSolutionsFromAI() async {
+  if (_predictionResult == null) return;
+  final localeManager = Provider.of<LocaleManager>(context, listen: false);
 
-    if (GEMINI_API_KEY == "YOUR_GEMINI_API_KEY") {
-      setState(
-        () => _solutionPoints = ["Error: Please add your Gemini API Key."],
+  // Simple check for placeholder key
+  if (OPENAI_API_KEY.contains("your-new-key-from-openai")) {
+    setState(() => _solutionPoints = ["Error: Please add your OpenAI API Key."]);
+    return;
+  }
+
+  setState(() {
+    _isGeneratingSolution = true;
+    _solutionPoints = [];
+  });
+
+  // 1. Set the API key for the OpenAI package
+  OpenAI.apiKey = OPENAI_API_KEY;
+
+  final diseaseName = _formatClassName(_predictionResult!['class']);
+  final plantName = localeManager.get(widget.plant.nameKey);
+  final targetLanguage = localeManager.locale.languageCode == 'hi' ? "Hindi" : "English";
+
+  // 2. Create the prompt for OpenAI
+  // Note: OpenAI uses a "system" prompt for instructions and a "user" prompt for the specific query.
+  final prompt = """
+  A farmer's "$plantName" plant is showing symptoms identified as "$diseaseName".
+  Your task is to identify the pests associated with these symptoms and provide a clear, concise action plan in the $targetLanguage language.
+  Limit the entire response to a maximum of 4 bullet points, focusing on pests first.
+  Your response must only contain the bullet points and nothing else.
+  - **Likely Pests:** Based on these symptoms, name the 1-2 most likely pests.
+  - **Pest Action:** State the single most effective, simple treatment for these pests.
+  - **Symptom Treatment:** State the single most important action for the plant's underlying condition ($diseaseName).
+  - **Prevention:** State one key preventative measure against these pests for the future.
+  """;
+
+try {
+      // 3. Make the API call to OpenAI
+      final chatCompletion = await OpenAI.instance.chat.create(
+        model: 'gpt-3.5-turbo',
+        messages: [
+          OpenAIChatCompletionChoiceMessageModel(
+            // FIX 1: Wrap the prompt string in the correct content model list.
+            content: [
+              OpenAIChatCompletionChoiceMessageContentItemModel.text(prompt),
+            ],
+            role: OpenAIChatMessageRole.user,
+          ),
+        ],
       );
-      return;
-    }
 
-    setState(() {
-      _isGeneratingSolution = true;
-      _solutionPoints = [];
-    });
+      // 4. Get the response text and parse it
+      // FIX 2: The response content is also a list, so safely get the text from the first item.
+      final responseText = chatCompletion.choices.first.message.content?.first.text;
+      setState(() => _solutionPoints = _parseSolution(responseText ?? ""));
 
-    final diseaseName = _formatClassName(_predictionResult!['class']);
-    final plantName = localeManager.get(widget.plant.nameKey);
-    final targetLanguage =
-        localeManager.locale.languageCode == 'hi' ? "Hindi" : "English";
-
-    final prompt = """
-    You are an agricultural expert. A farmer's "$plantName" plant is showing symptoms identified as "$diseaseName".
-    The primary goal is to identify the pests associated with these symptoms and provide a clear action plan.
-    Provide a highly concise action plan. Limit the entire response to a maximum of 4 bullet points, focusing on pests first.
-    Your response must only contain the bullet points and nothing else.
-    IMPORTANT: Your entire response must be in the $targetLanguage language.
-
-    - **Likely Pests:** Based on these symptoms, name the 1-2 most likely pests.
-    - **Pest Action:** State the single most effective, simple treatment for these pests.
-    - **Symptom Treatment:** State the single most important action for the plant's underlying condition ($diseaseName).
-    - **Prevention:** State one key preventative measure against these pests for the future.
-    """;
-
-    try {
-      final model = GenerativeModel(
-        model: 'gemini-1.5-flash',
-        apiKey: GEMINI_API_KEY,
-      );
-      final content = [Content.text(prompt)];
-      final response = await model.generateContent(content);
-      setState(() => _solutionPoints = _parseSolution(response.text ?? ""));
     } catch (e) {
-      setState(
-        () => _solutionPoints = ["Error generating solution: ${e.toString()}"],
-      );
+      setState(() => _solutionPoints = ["Error generating solution: ${e.toString()}"]);
     } finally {
       setState(() => _isGeneratingSolution = false);
     }
-  }
+}
 
   String _formatClassName(String className) {
     return className.replaceAll('___', ' - ').replaceAll('_', ' ');
