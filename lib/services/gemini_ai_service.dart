@@ -13,7 +13,7 @@ class GeminiAIService {
         throw Exception('Gemini API Key is missing. Please check your .env file.');
     }
     _model = GenerativeModel(
-      model: 'gemini-2.0-flash-lite-001',
+      model: 'gemini-2.0-flash-001',
       apiKey: GEMINI_API_KEY,
     );
   }
