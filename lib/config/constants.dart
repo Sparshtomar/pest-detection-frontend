@@ -5,6 +5,7 @@ import '../models/plant_model.dart';
 // --- App Configuration ---
 const String serverUrl = "http://10.229.231.2:8000";
 final String OPENAI_API_KEY = dotenv.env['OPENAI_API_KEY'] ?? 'API_KEY_NOT_FOUND';
+final String GEMINI_API_KEY = dotenv.env['GEMINI_API_KEY'] ?? 'GEMINI_KEY_NOT_FOUND';
 
 // --- App Data ---
 final List<Plant> plants = [

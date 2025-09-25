@@ -1,12 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:pest_detection/config/theme.dart';
+import 'package:pest_detection/models/plant_model.dart';
 import 'package:pest_detection/providers/local_provider.dart';
+import 'package:pest_detection/services/ai_service.dart';
+import 'package:pest_detection/services/gemini_ai_service.dart';
+import 'package:pest_detection/services/prediction_service.dart';
 import 'package:provider/provider.dart';
-import '../../config/theme.dart';
-import '../../models/plant_model.dart';
-import '../../services/ai_service.dart';
-import '../../services/prediction_service.dart';
 import 'widgets/result_card.dart';
 import 'widgets/solution_card.dart';
 
@@ -21,7 +22,8 @@ class PredictionScreen extends StatefulWidget {
 class _PredictionScreenState extends State<PredictionScreen> {
   final ImagePicker _picker = ImagePicker();
   final PredictionService _predictionService = PredictionService();
-  final AIService _aiService = AIService();
+  // final AIService _aiService = AIService();
+  final GeminiAIService _aiService = GeminiAIService(); 
 
   File? _image;
   Map<String, dynamic>? _predictionResult;
